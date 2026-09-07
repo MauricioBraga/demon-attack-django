@@ -1,0 +1,10 @@
+node_modules/
+
+# Artefatos gerados por "npm run build" — não são código-fonte.
+public_html/scripts/*.bundle.js
+public_html/scripts/*.bundle.js.LICENSE.txt
+public_html/app/scripts/*.bundle.js
+public_html/app/scripts/*.bundle.js.LICENSE.txt
+public_html/app/*.bundle.js
+public_html/app/*.bundle.js.LICENSE.txt
+public_html/app/resources.zip

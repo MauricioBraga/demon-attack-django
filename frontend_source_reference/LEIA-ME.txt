@@ -1,0 +1,168 @@
+Este diretório é uma cópia BUILDÁVEL do código-fonte TypeScript do jogo
+(https://github.com/meatfighter/demon-attack-js), já com as modificações
+para integração com a API REST do Django, tela de demo com painel de
+recordes + volume, e as correções aplicadas depois (áudio, alinhamento,
+nível no placar, retomada de partida, estrutura nativa de app Django). É
+uma estrutura idêntica à do repositório original — package.json,
+tsconfig.json, webpack.config.*.mjs, src/, sfx/ e public_html/ — então dá
+para editar e recompilar normalmente.
+
+====================================================================
+COMO ATUALIZAR O JOGO (app Django "game") DEPOIS DE EDITAR O CÓDIGO
+====================================================================
+
+Da primeira vez, instale as dependências:
+
+    cd frontend_source_reference
+    npm install
+
+Sempre que editar algo em src/ (ou em public_html/, sfx/, etc.), rode:
+
+    npm run build:deploy
+
+Esse comando único faz tudo: compila o TypeScript com webpack (limpa os
+bundles antigos, empacota os efeitos sonoros em resources.zip, gera os
+bundles otimizados) e copia o resultado para dentro do app Django "game"
+(via deploy.mjs):
+
+    public_html/app/app.html          -> ../game/templates/game/index.html
+    public_html/app/scripts/          -> ../game/static/game/scripts/
+    public_html/app/styles/           -> ../game/static/game/styles/
+    public_html/app/icons/            -> ../game/static/game/icons/
+    public_html/app/manifest.json     -> ../game/static/game/manifest.json
+    public_html/app/resources.zip     -> ../game/static/game/resources.zip
+    public_html/app/sw.bundle.js      -> ../game/static/game/sw.bundle.js
+
+Depois de rodar, basta recarregar a página no navegador (sem precisar
+reiniciar o servidor Django) para ver a mudança.
+
+Comandos individuais, se preferir rodar por partes:
+
+    npm run build      # só compila (gera frontend_source_reference/public_html)
+    npm run deploy      # só copia o já compilado para dentro do app "game"
+
+Não existe um "modo watch" (recompilação automática a cada salvamento)
+configurado aqui, porque o build tem várias etapas (limpar, zipar os sons,
+rodar 3 configurações de webpack separadas) que não se prestam bem a um
+watch simples. Na prática, rodar "npm run build:deploy" manualmente após
+cada lote de mudanças é rápido (poucos segundos) e mais previsível.
+
+====================================================================
+ESTRUTURA NATIVA DE PROJETO/APP DJANGO
+====================================================================
+
+O projeto Django foi reestruturado para parecer uma aplicação Django
+nativa de verdade, em vez de servir uma pasta de arquivos estáticos "na
+unha":
+
+  - A pasta do projeto (settings.py, urls.py, wsgi.py, asgi.py) chama-se
+    project/ (antes: demon_attack_project/).
+  - O jogo em si é um app Django de verdade chamado "game", com a
+    estrutura padrão esperada (templates/game/index.html + static/game/),
+    registrado em INSTALLED_APPS como qualquer outro app.
+  - Os arquivos de game/static/game/ são servidos automaticamente pelo
+    django.contrib.staticfiles (em DEBUG, o runserver já cuida disso
+    sozinho — nenhuma rota manual é necessária).
+  - game/templates/game/index.html usa "{% load static %}" e
+    "<base href=\"{% static 'game/' %}\">", então os caminhos relativos
+    usados pelos scripts do jogo (scripts/..., styles/..., manifest.json,
+    icons/...) resolvem automaticamente para dentro de /static/game/.
+  - O service worker é a única exceção: é servido em /sw.bundle.js (raiz
+    do site) por uma view dedicada (game.views.service_worker), e não em
+    /static/game/sw.bundle.js. Isso é necessário porque o escopo padrão
+    de um service worker é limitado ao diretório do seu próprio script —
+    servi-lo dentro de /static/game/ limitaria o cache offline a essa
+    pasta, e não à página do jogo (/). src/bootstrap.ts registra o
+    service worker em "/sw.bundle.js" (caminho absoluto) para bater com
+    essa view.
+
+====================================================================
+ARQUIVOS NOVOS/ALTERADOS EM RELAÇÃO AO REPOSITÓRIO ORIGINAL
+====================================================================
+
+  - src/hiscore.ts            (NOVO) cliente da API de recordes
+  - src/side-panel.ts         (NOVO) painel lateral permanente: volume + Top 10
+  - src/game/game-state.ts    modo demo (estado sempre novo); construtor não
+                               lê mais nada de store (ver bug de retomada
+                               de partida abaixo)
+  - src/game/game.ts          loop de atualização do modo demo; trySpawnDemon()
+                               não toca som em modo demo (ver bug de áudio
+                               abaixo)
+  - src/game/cannon.ts        canhão ignora input em modo demo; nível
+                               enviado ao placar como gs.level + 1 (ver bug
+                               de nível abaixo)
+  - src/game/cannon-bullet.ts canhão nunca atira em modo demo
+  - src/game/demon.ts         demônios da camada inferior não soltam balas
+                               em modo demo
+  - src/audio.ts              suporte a efeito sonoro "exclusivo" — ao tocar
+                               awards-bunker.mp3, todo outro som é
+                               interrompido e nenhum outro toca até ele
+                               terminar sozinho
+  - src/screen.ts             foco automático do canvas; reserva espaço à
+                               direita para o painel, colando a tela do jogo
+                               nele (com a folga sobrando à esquerda)
+  - src/start.ts               menu de opções (hambúrguer) sem o slider de
+                               volume (redundante com o painel) e sem a
+                               distinção Start/Continue (não há mais partida
+                               para retomar)
+  - src/progress.ts            ao terminar de carregar, monta o painel e
+                               entra direto no jogo em modo demo
+  - src/input.ts               preventDefault() em teclas de jogo (evita
+                               rolar a página ao apertar espaço/setas)
+  - src/store.ts               removidos os campos de partida em andamento
+                               (score/level/bunkers/spawnedDemons/
+                               cannonExploded) — só preferências reais
+                               (highScore/volume/autofire/tracer/fast)
+                               continuam persistidas entre sessões
+  - src/bootstrap.ts           registra o service worker em "/sw.bundle.js"
+                               (caminho absoluto), para bater com a view
+                               dedicada do Django (ver seção acima)
+  - public_html/app/app.html   "{% load static %}" +
+                               "<base href=\"{% static 'game/' %}\">"
+  - public_html/app/manifest.json  start_url/scope apontando para "/"
+  - public_html/app/styles/app.css  estilos do painel lateral e do modal de
+                               novo recorde
+  - deploy.mjs, package.json   (NOVOS) script "deploy"/"build:deploy" que
+                               compila e copia o resultado para dentro do
+                               app Django "game" automaticamente
+
+====================================================================
+RESUMO DOS BUGS CORRIGIDOS AO LONGO DO DESENVOLVIMENTO
+====================================================================
+
+  1. Áudio sumia depois de um tempo: o modo demo chamava play() (que tenta
+     AudioContext.resume()) antes de qualquer gesto do usuário; navegadores
+     bloqueiam isso, e o helper resume() (audio.ts) cacheava essa primeira
+     tentativa indefinidamente, travando o áudio pelo resto da sessão.
+  2. Tela do jogo colada na borda esquerda: corrigido para colar no painel
+     de recordes (à direita), com a folga sobrando à esquerda.
+  3. awards-bunker.mp3 tocando sobreposto a outros efeitos: agora é um som
+     "exclusivo" (audio.ts) que silencia e bloqueia qualquer outro som
+     enquanto toca.
+  4. Nível no placar começando do 0: gs.level é 0-indexado internamente
+     (usado como índice de paleta/velocidade); o placar agora recebe
+     gs.level + 1.
+  5. Partida retomava do ponto anterior ao reabrir o navegador: store.ts
+     não guarda mais score/level/bunkers/spawnedDemons/cannonExploded —
+     toda partida sempre começa do zero.
+  6. Estrutura do projeto Django reorganizada para parecer uma aplicação
+     nativa de verdade (pasta project/ + app "game" com templates/static),
+     em vez de servir uma pasta de build solta via document_root manual.
+
+--- Correção: recordes gravados no banco não apareciam no placar ---
+  - src/sw.ts    o service worker cacheava a resposta de QUALQUER
+                  requisição (estratégia cache-first para tudo que começa
+                  com "http"), incluindo /api/scores/. Isso significa que,
+                  depois da primeira leitura do placar (ex: vazio, no
+                  primeiro acesso), toda leitura seguinte da API recebia
+                  essa MESMA resposta em cache para sempre — mesmo depois
+                  de novos recordes serem gravados no banco. Corrigido para
+                  que requisições a /api/ nunca sejam cacheadas: sempre vão
+                  direto para a rede. CACHE_NAME também foi renovado (para
+                  "demon-attack-cache-2026-09-06") e as strings de versão
+                  em bootstrap.ts/app.html foram atualizadas, para que
+                  navegadores que já tinham visitado o site (com uma
+                  entrada de /api/scores/ presa no cache antigo) troquem de
+                  service worker e limpem esse cache velho na próxima
+                  visita, em vez de ficar com o placar desatualizado para
+                  sempre.
