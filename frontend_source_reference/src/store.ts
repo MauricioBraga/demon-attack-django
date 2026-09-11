@@ -4,7 +4,12 @@ export const LOCAL_STORAGE_KEY = 'demon-attack-store';
 
 export class Store {
     highScore = 0;
-    
+    // Maior nível (level) já alcançado neste navegador — exibido como
+    // "1-indexado" (o mesmo número mostrado ao jogador). Usado só para
+    // decidir quando o indicador "LEVEL xx" passa a girar de cor (ver
+    // game.ts); não é o placar de recordes do servidor.
+    highLevel = 0;
+
     volume = 10;
 
     autofire = isTouchOnlyDevice();
@@ -36,6 +41,9 @@ export function loadStore() {
             // sessão anterior.
             if (typeof parsed.highScore === 'number') {
                 store.highScore = parsed.highScore;
+            }
+            if (typeof parsed.highLevel === 'number') {
+                store.highLevel = parsed.highLevel;
             }
             if (typeof parsed.volume === 'number') {
                 store.volume = parsed.volume;

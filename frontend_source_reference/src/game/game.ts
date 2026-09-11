@@ -2,7 +2,11 @@ import {
     colors,
     baseSprites,
     bunkerSprites, 
-    digitSprites, 
+    digitSprites,
+    levelLetterSprites,
+    LEVEL_LETTER_L,
+    LEVEL_LETTER_E,
+    LEVEL_LETTER_V,
 } from '@/graphics';
 import { Tier } from './tier';
 import { Demon } from './demon';
@@ -10,6 +14,7 @@ import { GameState } from './game-state';
 import { isFirePressed, isLeftPressed, isRightPressed, updateInput } from '@/input';
 import { play } from '@/audio';
 import { clamp } from '@/math';
+import { store } from '@/store';
 
 const PULSE_SFX = new Array<string>(6);
 for (let pulse = 0; pulse < 6; ++pulse) {
@@ -139,6 +144,18 @@ export function update() {
         return;
     }
 
+    // Indicador "LEVEL xx": passa a girar de cor (como o placar) quando o
+    // jogador supera seu recorde pessoal de nível neste navegador — regra
+    // independente da que rege a cor do placar (essa é sobre pontuação, e
+    // só entra em ação na tela de game over).
+    if (gs.level + 1 > store.highLevel) {
+        store.highLevel = gs.level + 1;
+        gs.newHighLevel = true;
+    }
+    if (gs.newHighLevel) {
+        gs.levelColor = (gs.levelColor + 1) & 0xFF;
+    }
+
     if (gs.animatingGameOver) {
         if (gs.baseColor < baseSprites.length - 1) {
             ++gs.baseColor;
@@ -260,6 +277,29 @@ export function renderScreen(ctx: CanvasRenderingContext2D) {
             }
             x -= 8;
         }
+    }
+
+    // "LEVEL xx": desenhado por cima do próprio chão (base), logo acima o
+    // fundo do texto acompanha automaticamente a cor do chão — azul durante
+    // o jogo, vermelho ao fim de jogo — sem precisar de um retângulo extra.
+    // Sempre com 2 dígitos (nível 1-indexado, o mesmo mostrado ao jogador).
+    {
+        const letters = levelLetterSprites[gs.levelColor];
+        const numbers = digitSprites[gs.levelColor];
+        const displayLevel = Math.min(99, gs.level + 1);
+
+        const CELL_WIDTH = 6;
+        const CHAR_COUNT = 8; // L E V E L (espaço) dezena unidade
+        let x = ((160 - (CHAR_COUNT * CELL_WIDTH - 1)) / 2) | 0;
+        const y = 211;
+
+        ctx.drawImage(letters[LEVEL_LETTER_L], x, y); x += CELL_WIDTH;
+        ctx.drawImage(letters[LEVEL_LETTER_E], x, y); x += CELL_WIDTH;
+        ctx.drawImage(letters[LEVEL_LETTER_V], x, y); x += CELL_WIDTH;
+        ctx.drawImage(letters[LEVEL_LETTER_E], x, y); x += CELL_WIDTH;
+        ctx.drawImage(letters[LEVEL_LETTER_L], x, y); x += 2 * CELL_WIDTH; // + espaço
+        ctx.drawImage(numbers[(displayLevel / 10) | 0], x, y); x += CELL_WIDTH;
+        ctx.drawImage(numbers[displayLevel % 10], x, y);
     }
 
     const { cannon, cannonBullet, demons, demonBullets } = gs;

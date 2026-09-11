@@ -33,6 +33,13 @@ export class GameState {
     pulseCounter = 0;
     demo: boolean;
 
+    // Indicador "LEVEL xx" (fora do jogo original): cor independente da do
+    // placar, que só passa a girar quando o jogador supera seu recorde
+    // pessoal de nível naquele navegador (ver update() em game.ts e
+    // store.highLevel).
+    levelColor = 0x2C;
+    newHighLevel = false;
+
     constructor(demo: boolean = false) {
         this.demo = demo;
         // Toda partida — real ou demo — sempre começa do zero. Não existe

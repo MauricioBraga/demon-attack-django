@@ -22,6 +22,15 @@ export const baseSprites: Sprite[] = new Array<Sprite>(121);
 export const bunkerSprites: Sprite[] = new Array<Sprite>(62);
 export const digitSprites: Sprite[][] = new Array<Sprite[]>(256); // color, digit
 
+// Letras usadas no indicador "LEVEL xx" (src/game/game.ts), desenhadas à mão
+// na mesma grade 6x9 (5 pixels visíveis + 1 coluna de espaçamento) e com a
+// mesma espessura de traço dos dígitos originais do jogo (ver DIGITS_GFX
+// logo abaixo). 0=L, 1=E, 2=V.
+export const LEVEL_LETTER_L = 0;
+export const LEVEL_LETTER_E = 1;
+export const LEVEL_LETTER_V = 2;
+export const levelLetterSprites: Sprite[][] = new Array<Sprite[]>(256); // color, letter
+
 export const demonSprites: Sprite[][][] = new Array<Sprite[][]>(7); // palette, demon, sprite
 export const demonMasks: Mask[][] = new Array<Mask[]>(6); // demon, sprite
 export const demonExplosionSprites: Sprite[][][] = new Array<Sprite[][]>(7); // palette, (0=explodes, 1=splits), sprite
@@ -153,6 +162,64 @@ export async function init() {
                     }
                 }
             }).then(({ imageBitmap }) => digitSprites[color][digit] = imageBitmap));        
+        }
+    }
+
+    // letras do indicador "LEVEL xx" (L, E, V), na mesma grade 6x9 usada
+    // pelos dígitos acima (5 pixels de largura visível + 1 coluna de
+    // espaçamento à direita).
+    const LEVEL_LETTER_MASKS: boolean[][][] = [
+        // L
+        [
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  true,  true,  true,  false],
+        ],
+        // E
+        [
+            [true,  true,  true,  true,  true,  false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  true,  true,  true,  false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  false, false, false, false],
+            [true,  true,  true,  true,  true,  false],
+        ],
+        // V
+        [
+            [true,  false, false, false, true,  false],
+            [true,  false, false, false, true,  false],
+            [false, true,  false, true,  false, false],
+            [false, true,  false, true,  false, false],
+            [false, true,  false, true,  false, false],
+            [false, true,  false, true,  false, false],
+            [false, true,  false, true,  false, false],
+            [false, false, true,  false, false, false],
+            [false, false, true,  false, false, false],
+        ],
+    ];
+    for (let color = 0; color < 256; ++color) {
+        const letterCol = palette[color];
+        levelLetterSprites[color] = new Array<Sprite>(LEVEL_LETTER_MASKS.length);
+        for (let letter = 0; letter < LEVEL_LETTER_MASKS.length; ++letter) {
+            const mask = LEVEL_LETTER_MASKS[letter];
+            promises.push(createSprite(6, 9, imageData => {
+                for (let y = 0; y < 9; ++y) {
+                    for (let x = 0; x < 6; ++x) {
+                        if (mask[y][x]) {
+                            setColor(imageData, x, y, letterCol);
+                        }
+                    }
+                }
+            }).then(({ imageBitmap }) => levelLetterSprites[color][letter] = imageBitmap));
         }
     }
   
